@@ -1,0 +1,5 @@
+<?php
+echo $OUTPUT->header();
+echo "yaay";
+echo $OUTPUT->footer();
+
