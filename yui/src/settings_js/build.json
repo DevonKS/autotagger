@@ -1,0 +1,10 @@
+{
+  "name": "moodle-local_autotagger-settings_js",
+  "builds": {
+    "moodle-local_autotagger-settings_js": {
+      "jsfiles": [
+        "settings.js"
+      ]
+    }
+  }
+}

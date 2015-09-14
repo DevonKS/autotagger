@@ -16,4 +16,5 @@
 
 $string['autotagger'] = 'Autotagger';
 $string['autotag_questions'] = 'Autotag Questions';
+$string['autotag_settings'] = 'Autotag Settings';
 $string['pluginname'] = 'Question Autotagger';

@@ -1,0 +1,8 @@
+{
+  "moodle-local_autotagger-settings_js": {
+    "requires": [
+      "base",
+      "node"
+    ]
+  }
+}

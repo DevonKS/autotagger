@@ -18,3 +18,6 @@ $ADMIN->add('root', new admin_category('local_autotagger', get_string('autotagge
 
 $ADMIN->add('local_autotagger', new admin_externalpage('autotagquestions', get_string('autotag_questions', 'local_autotagger'),
 	$CFG->wwwroot."/local/autotagger/view/autotagger.php", 'moodle/site:config'));
+
+$ADMIN->add('local_autotagger', new admin_externalpage('autotagsettings', get_string('autotag_settings', 'local_autotagger'),
+    $CFG->wwwroot . "/local/autotagger/view/autotagger_settings.php", 'moodle/site:config'));

@@ -14,9 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-$plugin->version = 2015080904;
-$plugin->release   = '1.0';
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->requires  = 2011120500;
-$plugin->component = 'local_autotagger';
+defined('MOODLE_INTERNAL') || die;
 
+$capabilities = array(
+    'local/database:saveconfig' => array(
+        'riskbitmask' => RISK_SPAM,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes' => array(
+            'editingteacher' => CAP_ALLOW
+        )
+    )
+);
