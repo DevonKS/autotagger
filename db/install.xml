@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/autotagger/db" VERSION="20150908" COMMENT="XMLDB file for Moodle local/autotagger"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+        >
+    <TABLES>
+        <TABLE NAME="local_autotagger" COMMENT="Default comment for local_autotagger, please edit me">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+                <FIELD NAME="language" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="tag_values_yaml" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="lang_unique" TYPE="unique" FIELDS="language"/>
+            </KEYS>
+        </TABLE>
+    </TABLES>
+</XMLDB>
