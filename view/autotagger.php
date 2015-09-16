@@ -31,23 +31,11 @@ $mform = new autotag_questions_form();
 if ($fromform = $mform->get_data()) {
     global $DB;
 
-    $fromform = (array)$fromform;
-    unset($fromform['checkbox_controller1']);
-    unset($fromform['checkbox_controller2']);
-    unset($fromform['submitbutton']);
+    $tags_to_autotag = process_form_data($fromform);
 
+    $autotag_specs = create_autotag_specs($DB);
 
-    $languages_yaml = $DB->get_records('local_autotagger');
-    $autotag_specs = array();
-    foreach ($languages_yaml as $language_yaml) {
-        $yaml = spyc_load($language_yaml->tag_values_yaml);
-        $autotag_specs[$language_yaml->language] = $yaml;
-    }
-
-    foreach ($fromform as $metatag => $value) {
-        $metatag = explode(',', $metatag);
-        $lang = $metatag[0];
-        $tag = $metatag[1];
+    foreach ($tags_to_autotag as $lang => $tags) {
 
         $questions = $DB->get_records_sql("SELECT *
                                    FROM {question} q, {question_coderunner_options} cq
@@ -55,103 +43,20 @@ if ($fromform = $mform->get_data()) {
 
         foreach ($questions as $question) {
             $question_metatags = array();
-            $field = $autotag_specs[$lang][$tag]['db_field'];
-            $db_field_value = $question->$field;
-            echo '<pre>';
-            var_dump(ctype_print($autotag_specs[$lang][$tag]['replacement_list'][2]['find']));
-            echo '</pre><br>';
-            echo '<pre>';
-            var_dump($autotag_specs[$lang][$tag]['replacement_list'][2]);
-            echo '</pre><br>';
-            echo '<pre>';
-            var_dump($db_field_value);
-            echo '</pre><br>';
+            foreach ($tags as $tag) {
+                $field = $autotag_specs[$lang][$tag]['db_field'];
+                $db_field_value = $question->$field;
 
-            $replace_regexes = $autotag_specs[$lang][$tag]['replacement_list'];
-            foreach ($replace_regexes as $replace_regex) {
-                $replace_regex['find'] = '/' . $replace_regex['find'] . '/';
-                $db_field_value = preg_replace($replace_regex['find'], $replace_regex['replace'], $db_field_value);
+                $db_field_value = apply_replacement_regexes($autotag_specs[$lang][$tag]['replacement_list'], $db_field_value);
+
+                $question_metatags = apply_accept_regexes($autotag_specs[$lang][$tag]['accept_regex_list'], $autotag_specs[$lang][$tag]['tag_type'], $db_field_value, $tag, $question_metatags);
             }
 
-            echo '<pre>';
-            var_dump($db_field_value);
-            echo '</pre><br><br>';
-
-            $accept_regexes = $autotag_specs[$lang][$tag]['accept_regex_list'];
-
-            $matches = array();
-            foreach ($accept_regexes as $accept_regex) {
-                $temp_matches = array();
-                $accept_regex = '/' . $accept_regex . '/';
-                preg_match_all($accept_regex, $db_field_value, $temp_matches);
-                if (!empty($matches[0])) {
-                    if (isset($matches[1])) {
-                        $matches = array_merge($matches, $temp_matches[1]);
-                    } else {
-                        $matches = array_merge($matches, $temp_matches[0]);
-                    }
-                }
-            }
-
-            if ($autotag_specs[$lang][$tag]['tag_type'] == 'bool') {
-                if (!empty($matches)) {
-                    $question_metatags[$tag] = 'T';
-                } else {
-                    $question_metatags[$tag] = 'F';
-                }
-            } else if ($autotag_specs[$lang][$tag]['tag_type'] == 'number') {
-                $num_matches = count($matches);
-                $question_metatags[$tag] = $num_matches;
-            }
-
-            $ordering = $DB->get_record_sql("SELECT MAX(ordering) as max from {tag_instance} WHERE itemid = $question->id");
-            $next_ordering = $ordering->max;
-            if ($next_ordering == null) {
-                $next_ordering = 0;
-            } else {
-                $next_ordering += 1;
-            }
-
-            foreach ($question_metatags as $metatag => $value) {
-                if ($value != 0) {
-                    $base_64_tag = base64_encode("$metatag: $value");
-                    $formatted_metatag = "meta;Base64;$base_64_tag";
-                    $existing_id = $DB->get_record_sql("SELECT id from  {tag} where name = '$formatted_metatag' AND rawname = '$formatted_metatag'");
-                    if ($existing_id === false) {
-                        $tag = new stdClass();
-                        $tag->userid = 2;
-                        $tag->name = strtolower($formatted_metatag);
-                        $tag->rawname = $formatted_metatag;
-                        $tag->tagtype = 'default';
-                        $tag->timemodified = time();
-//                        $existing_id = $DB->insert_record('tag', $tag);
-                        echo '<pre>';
-                        var_dump($tag);
-                        echo '</pre><br><br>';
-                    }
-
-                    $tag_id = intval($existing_id->id);
-                    $existing_link = $DB->get_record_sql("SELECT id FROM {tag_instance} WHERE itemid = $question->id AND tagid = $tag_id");
-                    if ($existing_link === false) {
-                        $tag_instance = new stdClass();
-                        $tag_instance->itemtype = 'question';
-                        $tag_instance->itemid = $question->id;
-                        $tag_instance->tagid = $tag_id;
-                        $tag_instance->component = 'core_question';
-                        $tag_instance->contextid = 2;
-                        $tag_instance->timecreated = time();
-                        $tag_instance->timemodified = time();
-                        $tag_instance->ordering = $next_ordering;
-//                        $DB->insert_record('tag_instance', $tag_instance);
-                        echo '<pre>';
-                        var_dump($tag_instance);
-                        echo '</pre><br><br>';
-                        $next_ordering += 1;
-                    }
-                }
-            }
+            autotag_question($question, $question_metatags);
         }
     }
+
+    echo "<h1>Autotagging Complete</h1>";
 } else {
     //Set default data (if any)
     $mform->set_data(array());
@@ -161,3 +66,156 @@ if ($fromform = $mform->get_data()) {
 
 echo $OUTPUT->footer();
 
+
+/**
+ * @param $fromform
+ * @return array
+ */
+function process_form_data($fromform)
+{
+    $fromform = (array)$fromform;
+    unset($fromform['checkbox_controller1']);
+    unset($fromform['checkbox_controller2']);
+    unset($fromform['submitbutton']);
+
+    $tags_to_autotag = array();
+    foreach ($fromform as $metatag => $value) {
+        $metatag = explode(',', $metatag);
+        $lang = $metatag[0];
+        $tag = $metatag[1];
+
+        if (isset($tags_to_autotag[$lang])) {
+            $tags_to_autotag[$lang][] = $tag;
+        } else {
+            $tags_to_autotag[$lang] = array($tag);
+        }
+    }
+    return $tags_to_autotag;
+}
+
+/**
+ * @param $DB
+ * @return array
+ */
+function create_autotag_specs($DB)
+{
+    global $DB;
+
+    $languages_yaml = $DB->get_records('local_autotagger');
+    $autotag_specs = array();
+    foreach ($languages_yaml as $language_yaml) {
+        $yaml = yaml_parse($language_yaml->tag_values_yaml);
+        $autotag_specs[$language_yaml->language] = $yaml;
+    }
+    return $autotag_specs;
+}
+
+/**
+ * @param $replace_regexes
+ * @param $db_field_value
+ * @return mixed
+ */
+function apply_replacement_regexes($replace_regexes, $db_field_value)
+{
+    foreach ($replace_regexes as $replace_regex) {
+        $replace_regex['find'] = '/' . $replace_regex['find'] . '/';
+        $db_field_value = preg_replace($replace_regex['find'], $replace_regex['replace'], $db_field_value);
+    }
+
+    return $db_field_value;
+}
+
+/**
+ * @param $accept_regexes
+ * @param $tag_type
+ * @param $db_field_value
+ * @param $tag
+ * @param $question_metatags
+ * @return mixed
+ */
+function apply_accept_regexes($accept_regexes, $tag_type, $db_field_value, $tag, $question_metatags)
+{
+    $matches = array();
+
+    foreach ($accept_regexes as $accept_regex) {
+        $temp_matches = array();
+        $accept_regex = '/' . $accept_regex . '/';
+        preg_match_all($accept_regex, $db_field_value, $temp_matches);
+        if (!empty($temp_matches[0])) {
+            if (isset($matches[1])) {
+                $matches = array_merge($matches, $temp_matches[1]);
+            } else {
+                $matches = array_merge($matches, $temp_matches[0]);
+            }
+        }
+    }
+
+    if ($tag_type == 'bool') {
+        if (!empty($matches)) {
+            $question_metatags[$tag] = 'T';
+            return $question_metatags;
+        } else {
+            $question_metatags[$tag] = 'F';
+            return $question_metatags;
+        }
+    } else if ($tag_type == 'number') {
+        $num_matches = count($matches);
+        $question_metatags[$tag] = $num_matches;
+        return $question_metatags;
+    }
+
+    return $question_metatags;
+}
+
+/**
+ * @param $question
+ * @param $question_metatags
+ */
+function autotag_question($question, $question_metatags)
+{
+    global $DB;
+
+    $ordering = $DB->get_record_sql("SELECT MAX(ordering) as max from {tag_instance} WHERE itemid = $question->id");
+    $next_ordering = $ordering->max;
+    if ($next_ordering == null) {
+        $next_ordering = 0;
+    } else {
+        $next_ordering += 1;
+    }
+
+    foreach ($question_metatags as $metatag => $value) {
+        if ($value != 0) {
+            $base_64_tag = base64_encode("$metatag: $value");
+            $formatted_metatag = "meta;Base64;$base_64_tag";
+            $existing_id = $DB->get_record_sql("SELECT id from  {tag} where name = '$formatted_metatag' AND rawname = '$formatted_metatag'");
+            $tag_id = -1;
+            if ($existing_id === false) {
+                $tag_object = new stdClass();
+                $tag_object->userid = 2;
+                $tag_object->name = strtolower($formatted_metatag);
+                $tag_object->rawname = $formatted_metatag;
+                $tag_object->tagtype = 'default';
+                $tag_object->timemodified = time();
+                $tag_id = $DB->insert_record('tag', $tag_object);
+            } else {
+                $tag_id = intval($existing_id->id);
+            }
+
+
+            $existing_link = $DB->get_record_sql("SELECT id FROM {tag_instance} WHERE itemid = $question->id AND tagid = $tag_id");
+            if ($existing_link === false) {
+                $tag_instance_object = new stdClass();
+                $tag_instance_object->itemtype = 'question';
+                $tag_instance_object->itemid = $question->id;
+                $tag_instance_object->tagid = $tag_id;
+                $tag_instance_object->component = 'core_question';
+                $tag_instance_object->contextid = 2;
+                $tag_instance_object->timecreated = time();
+                $tag_instance_object->timemodified = time();
+                $tag_instance_object->ordering = $next_ordering;
+                $DB->insert_record('tag_instance', $tag_instance_object);
+                $next_ordering += 1;
+            }
+        }
+    }
+}
