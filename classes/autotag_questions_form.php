@@ -35,6 +35,9 @@ class autotag_questions_form extends moodleform
             $checkbox_group += 1;
         }
 
+        $mform->addElement('hidden', 'courseid');
+        $mform->setType('courseid', PARAM_INT);
+
         $this->add_action_buttons(false, 'Autotag Questions');
     }
 }

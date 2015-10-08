@@ -22,12 +22,24 @@ require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once(__DIR__ . '/../classes/autotag_settings_form.php');
 
-admin_externalpage_setup('autotagsettings');
+global $COURSE, $PAGE, $OUTPUT, $DB;
+
+$courseid = required_param('courseid', PARAM_INT);
+
+require_login($courseid, false);
+$PAGE->set_pagelayout('admin');
+$PAGE->set_url('/local/autotagger/view/autotagger.php');
+$PAGE->set_title('Autotag Questions');
+$PAGE->set_heading('Autotag Questions');
+$PAGE->navbar->add('Autotag Questions', new moodle_url('/local/autotagger/view/autotagger_settings.php', array('courseid' => $courseid)));
 
 echo $OUTPUT->header();
 
 $PAGE->requires->yui_module('moodle-local_autotagger-settings_js', 'M.local_autotagger.settings_js.init');
 $mform = new autotag_settings_form();
+
+$formdata = array('id' => $courseid); // Note this can be an array or an object.
+$mform->set_data($formdata);
 
 if ($fromform = $mform->get_data()) {
     $languages_yaml = $DB->get_records('local_autotagger');

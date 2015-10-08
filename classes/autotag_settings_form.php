@@ -30,6 +30,9 @@ class autotag_settings_form extends moodleform
         $mform->addElement('hidden', 'lang_name', '');
         $mform->setType('lang_name', PARAM_TEXT);
 
+        $mform->addElement('hidden', 'courseid');
+        $mform->setType('courseid', PARAM_INT);
+
         $buttonarray = array();
         $buttonarray[] = &$mform->createElement('submit', 'new_langbutton', 'New Language');
         $buttonarray[] = &$mform->createElement('submit', 'submitbutton', 'Save Changes');
