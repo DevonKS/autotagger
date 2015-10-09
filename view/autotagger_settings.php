@@ -38,7 +38,7 @@ echo $OUTPUT->header();
 $PAGE->requires->yui_module('moodle-local_autotagger-settings_js', 'M.local_autotagger.settings_js.init');
 $mform = new autotag_settings_form();
 
-$formdata = array('id' => $courseid); // Note this can be an array or an object.
+$formdata = array('courseid' => $courseid); // Note this can be an array or an object.
 $mform->set_data($formdata);
 
 if ($fromform = $mform->get_data()) {
@@ -71,6 +71,7 @@ if ($fromform = $mform->get_data()) {
         $fromform = (array)$fromform;
         unset($fromform['submitbutton']);
         unset($fromform['lang_name']);
+        unset($fromform['courseid']);
 
         foreach ($fromform as $lang => $tag_value_yaml) {
             $record = new stdClass();

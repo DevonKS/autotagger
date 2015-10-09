@@ -290,9 +290,19 @@ function autotag_question($question, $question_metatags, $remove_existing = true
 
     foreach ($question_metatags as $metatag => $value) {
         if ($value !== 0) {
+            if (strpos($metatag, '[') !== false) {
+                $base_64_tag = base64_encode("$value");
+                $raw_name = "meta;Base64;%$base_64_tag";
+                $existing_id = $DB->get_record_sql("SELECT id from  {tag} where rawname LIKE '$raw_name'");
+            } else {
+                $base_64_tag = base64_encode("$metatag: $value");
+                $raw_name = "meta;Base64;$base_64_tag";
+                $existing_id = $DB->get_record_sql("SELECT id from  {tag} where rawname = '$raw_name'");
+            }
+
             $base_64_tag = base64_encode("$metatag: $value");
             $formatted_metatag = "meta;Base64;$base_64_tag";
-            $existing_id = $DB->get_record_sql("SELECT id from  {tag} where name = '$formatted_metatag' AND rawname = '$formatted_metatag'");
+
             if ($existing_id === false) {
                 $tag_object = new stdClass();
                 $tag_object->userid = 2;

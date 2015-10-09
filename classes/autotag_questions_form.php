@@ -24,7 +24,7 @@ class autotag_questions_form extends moodleform
         $checkbox_group = 1;
         foreach ($languages_yaml as $language_yaml) {
             $lang = $language_yaml->language;
-            $metatags = array_keys(spyc_load($language_yaml->tag_values_yaml));
+            $metatags = array_keys(yaml_parse($language_yaml->tag_values_yaml));
 
             $mform->addElement('header', $lang . 'header', ucfirst($lang));
             foreach ($metatags as $metatag) {
